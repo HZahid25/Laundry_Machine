@@ -1,0 +1,136 @@
+#include "mbed.h"
+
+BufferedSerial pc(USBTX, USBRX,115200);        //establish serial communications
+
+AnalogIn pot1(PA_7);
+
+float frequency = 100;
+
+DigitalIn button1(PC_10);
+// The following pins are for each segment of the 7-seg 
+DigitalOut seg1(PA_12);
+DigitalOut seg2(PA_11);
+DigitalOut seg3(PB_12);
+DigitalOut seg4(PB_11);
+DigitalOut seg5(PB_2);
+DigitalOut seg6(PB_1);
+DigitalOut seg7(PB_15);
+DigitalOut seg8(PB_14);
+
+//segment       A       B     C      D    E     F      G        
+BusOut SegDis(PA_11, PA_12, PB_1, PB_14, PB_15, PB_12, PB_11);
+DigitalOut decimal_point(PB_2); //Add pin for the Decimal Point 
+
+//               0    1     2     3     
+int hexDis[] = {0x3F,0x06,0x5b,0x4F}; // Add the rest of the hex values associated with the dispplay items 0-F
+int dp_status = 0;
+int i = 0;
+
+char INSTRUCT[] = "Use the potentiometer to select between three washing cycles.\n" ;
+
+void init_Seg();
+void init_buttons();
+void init(); // Added declaration
+
+PwmOut red_LED(PB_4);   //PWM output to red led
+PwmOut green_LED(PB_3); //PWM output to green led
+
+bool led_state = false; // Current state of the LED
+bool update_led_state = true; // Flag to indicate whether to update LED state
+bool printed1 = false;
+float cntl_val = 0;
+
+int main()
+{
+    init_buttons(); // Initialise buttons
+    init();         // Initialise LEDs
+    init_Seg();     // Initialise 7-segment display
+
+    while (true)
+    {
+        if (button1.read() == 1 && update_led_state)
+        {
+            led_state = !led_state; // Toggle LED state
+            update_led_state = false; // Prevent further updates until button is released
+        }
+        else if (button1.read() == 0)
+        {
+            update_led_state = true; // Allow updating LED state when button is released
+        }
+
+         cntl_val = pot1.read()*3.3; // Read potentiometer value (range: 0.0 to 1.0)
+
+        if (led_state) // If the LED state is true (green LED is on)
+        {
+            red_LED.write(0);   // Turn off red LED
+            green_LED.write(1); // Turn on green LED
+
+            // Define thresholds
+            float threshold1 = 0.5;
+            float threshold2 = 1.70;
+            float threshold3 = 2.75;
+            float threshold4 = 3.30;
+            // Check potentiometer value against thresholds
+        if (cntl_val >= 0 && cntl_val < threshold1)
+        {
+             i = 0;
+            // Potentiometer value is in the first state
+            // Do something for the first state
+            SegDis.write(hexDis[0]); // Display '0' on 7-segment display
+            decimal_point.write(dp_status); //write value to decimal point
+            if (!printed1 && (i==0)){
+                printf("eco wash");
+                 printed1 = true;
+                    }
+        }
+        else if (cntl_val >= threshold1 && cntl_val < threshold2)
+        {
+        // Potentiometer value is in the second state
+        // Do something for the second state
+        SegDis.write(hexDis[1]); // Display '1' on 7-segment display
+        decimal_point.write(dp_status); //write value to decimal point
+
+        }
+        else if (cntl_val >= threshold2 && cntl_val < threshold3)
+        {
+        // Potentiometer value is in the third state
+        // Do something for the third state
+        SegDis.write(hexDis[2]); // Display '2' on 7-segment display
+        decimal_point.write(dp_status); //write value to decimal point
+        }
+        else if (cntl_val >= threshold3 && cntl_val <= threshold4)
+        {
+            // Potentiometer value is in the fourth state
+            // Do something for the fourth state
+            SegDis.write(hexDis[3]); // Display '3' on 7-segment display
+            decimal_point.write(dp_status); //write value to decimal point
+        }
+
+        }
+        else // If the LED state is false (red LED is on)
+        {
+            red_LED.write(1);   // Turn on red LED
+            green_LED.write(0); // Turn off green LED
+            SegDis.write(0x00); //turn off the display by setting all segments to '0'
+        }
+    }
+}
+
+void init_buttons()
+{
+    button1.mode(PullNone); // Turn off internal pull up / pull down resistors
+}
+
+void init()
+{
+    red_LED.write(0.0);        // Initialise LEDs with initial PWM value to 0.0 = 0%
+    green_LED.write(0.0);
+
+    red_LED.period(1 / frequency);    // Set the period of the wave form as 1/100Hz
+    green_LED.period(1 / frequency);
+}
+
+void init_Seg(){
+    SegDis.write(0x00); //turn off the display by setting all segments to '0'
+    ThisThread::sleep_for(200ms);
+}
